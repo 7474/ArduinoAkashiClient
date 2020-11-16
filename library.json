@@ -1,0 +1,16 @@
+{
+  "name": "AkashiClient",
+  "description": "Akashi client for Aruduino.",
+  "keywords": "Akashi",
+  "authors": {
+    "name": "koudenpa",
+    "url": "https://koudenpa.hatenablog.com/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/7474/ArduinoAkashiClient.git"
+  },
+  "version": "0.0.1",
+  "framework": "arduino",
+  "platforms": "espressif32"
+}
