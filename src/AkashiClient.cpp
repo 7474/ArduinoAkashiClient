@@ -59,13 +59,14 @@ int AkashiClient::stamp(const AkashiStampType type)
 
         char path[128];
         sprintf(path, "/api/cooperation/%s/stamps", companyCode);
-        DynamicJsonDocument response(128);
-        if (post(path, doc, response))
+        DynamicJsonDocument response(1024 * 5);
+        if (post(path, doc, response) != 0)
         {
-                return -1;
+                return -2;
         }
 
-        return response["success"] ? 0 : -1;
+        bool isSuccess = response["success"];
+        return isSuccess ? 0 : -1;
 }
 
 // https://akashi.zendesk.com/hc/ja/articles/115000475854-AKASHI-%E5%85%AC%E9%96%8BAPI-%E4%BB%95%E6%A7%98#get_token
@@ -76,24 +77,31 @@ int AkashiClient::updateToken(char *updatedToken)
 
         char path[128];
         sprintf(path, "/api/cooperation/token/reissue//%s", companyCode);
-        DynamicJsonDocument response(128);
-        if (post(path, doc, response))
+        DynamicJsonDocument response(1024 * 5);
+        if (post(path, doc, response) != 0)
         {
-                return -1;
+                return -2;
         }
 
-        if( response["success"]) {
+        bool isSuccess = response["success"];
+        if (isSuccess)
+        {
                 strcpy(updatedToken, response["response"]["token"]);
                 return 0;
-        }else{
+        }
+        else
+        {
                 return -1;
         }
 }
 
 // TODO この辺はJSONのRESTクライアントとして切り出せそう。
-int AkashiClient::get(const char* path, JsonDocument &response)
+int AkashiClient::get(const char *path, JsonDocument &response)
 {
-        openRequest("GET", path);
+        if (openRequest("GET", path) != 0)
+        {
+                return -1;
+        }
         client.println("Connection: close");
         client.println();
 
@@ -112,14 +120,17 @@ struct NullWriter
         }
 };
 
-int AkashiClient::post(const char* path, JsonDocument &body, JsonDocument &response)
+int AkashiClient::post(const char *path, JsonDocument &body, JsonDocument &response)
 {
         // TODO sizeの取り方。。。
         // NullWriter nullWriter;
         // size_t bodyLength = serializeJson(body, nullWriter);
         size_t bodyLength = serializeJson(body, Serial);
 
-        openRequest("POST", path);
+        if (openRequest("POST", path) != 0)
+        {
+                return -1;
+        }
         client.println("Content-Type: application/json");
         client.print("Content-Length: ");
         client.println(bodyLength);
@@ -130,7 +141,7 @@ int AkashiClient::post(const char* path, JsonDocument &body, JsonDocument &respo
         return receiveResponse(response);
 }
 
-int AkashiClient::openRequest(const char* method, const char* path)
+int AkashiClient::openRequest(const char *method, const char *path)
 {
         Serial.println("\nStarting connection to server...");
         Serial.print("Host: ");
@@ -151,6 +162,56 @@ int AkashiClient::openRequest(const char* method, const char* path)
         return 0;
 }
 
+// NoMemoryエラーを見過ごしていた時の名残
+struct WiFiClientSecureReader
+{
+        WiFiClientSecure client;
+
+        int read()
+        {
+                int restTry = 1000;
+                while (client.connected() || client.available())
+                {
+                        // データがなければ-1が返る
+                        int c = client.read();
+                        if (c >= 0)
+                        {
+                                Serial.print((char)c);
+                                return c;
+                        }
+                        Serial.println(restTry);
+                        restTry--;
+                        if (restTry <= 0)
+                        {
+                                break;
+                        }
+                }
+                return -1;
+        }
+
+        size_t readBytes(char *buffer, size_t length)
+        {
+                Serial.print("readBytes[");
+                Serial.print(length);
+                Serial.print("]");
+                size_t n = 0;
+                while (n < length)
+                {
+                        int c = read();
+                        if (c >= 0)
+                        {
+                                buffer[n] = c;
+                                n++;
+                        }
+                        else
+                        {
+                                break;
+                        }
+                }
+
+                return n;
+        }
+};
 int AkashiClient::receiveResponse(JsonDocument &response)
 {
         while (client.connected())
@@ -163,13 +224,16 @@ int AkashiClient::receiveResponse(JsonDocument &response)
                         break;
                 }
         }
-        while (client.available())
-        {
-                ReadLoggingStream loggingStream(client, Serial);
-                deserializeJson(response, loggingStream);
-        }
+        ReadLoggingStream loggingStream(client, Serial);
+        DeserializationError error = deserializeJson(response, loggingStream);
         client.stop();
+        if (error)
+        {
+                Serial.println(error.c_str());
+                return -1;
+        }
         Serial.println("\nbody received");
+        serializeJson(response, Serial);
 
         return 0;
 }
