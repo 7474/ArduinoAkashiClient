@@ -65,8 +65,7 @@ int AkashiClient::stamp(const AkashiStampType type)
                 return -2;
         }
 
-        bool isSuccess = response["success"];
-        return isSuccess ? 0 : -1;
+        return response["success"] ? 0 : -1;
 }
 
 // https://akashi.zendesk.com/hc/ja/articles/115000475854-AKASHI-%E5%85%AC%E9%96%8BAPI-%E4%BB%95%E6%A7%98#get_token
@@ -83,8 +82,7 @@ int AkashiClient::updateToken(char *updatedToken)
                 return -2;
         }
 
-        bool isSuccess = response["success"];
-        if (isSuccess)
+        if (response["success"])
         {
                 strcpy(updatedToken, response["response"]["token"]);
                 return 0;
@@ -162,56 +160,6 @@ int AkashiClient::openRequest(const char *method, const char *path)
         return 0;
 }
 
-// NoMemoryエラーを見過ごしていた時の名残
-struct WiFiClientSecureReader
-{
-        WiFiClientSecure client;
-
-        int read()
-        {
-                int restTry = 1000;
-                while (client.connected() || client.available())
-                {
-                        // データがなければ-1が返る
-                        int c = client.read();
-                        if (c >= 0)
-                        {
-                                Serial.print((char)c);
-                                return c;
-                        }
-                        Serial.println(restTry);
-                        restTry--;
-                        if (restTry <= 0)
-                        {
-                                break;
-                        }
-                }
-                return -1;
-        }
-
-        size_t readBytes(char *buffer, size_t length)
-        {
-                Serial.print("readBytes[");
-                Serial.print(length);
-                Serial.print("]");
-                size_t n = 0;
-                while (n < length)
-                {
-                        int c = read();
-                        if (c >= 0)
-                        {
-                                buffer[n] = c;
-                                n++;
-                        }
-                        else
-                        {
-                                break;
-                        }
-                }
-
-                return n;
-        }
-};
 int AkashiClient::receiveResponse(JsonDocument &response)
 {
         while (client.connected())
@@ -233,7 +181,6 @@ int AkashiClient::receiveResponse(JsonDocument &response)
                 return -1;
         }
         Serial.println("\nbody received");
-        serializeJson(response, Serial);
 
         return 0;
 }
