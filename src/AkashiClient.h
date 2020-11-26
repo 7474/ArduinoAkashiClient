@@ -11,6 +11,7 @@
 #define AKASHICLIENT_VERSION "0.0.1"
 
 enum AkashiStampType {
+    AkashiStampTypeAuto = 0,
     AkashiStampTypeShukkin = 11,
     AkashiStampTypeTaikin = 12,
     AkashiStampTypeChokko = 21,

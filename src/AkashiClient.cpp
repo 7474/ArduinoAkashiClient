@@ -54,7 +54,9 @@ int AkashiClient::stamp(const AkashiStampType type)
 {
         DynamicJsonDocument doc(128);
         doc["token"] = token;
-        doc["type"] = type;
+        if (type != AkashiStampTypeAuto) {
+                doc["type"] = type;
+        }
         // TODO 他のパラメータ
 
         char path[128];
