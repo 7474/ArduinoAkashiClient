@@ -69,7 +69,7 @@ int AkashiClient::stamp(const AkashiStampType type)
 }
 
 // https://akashi.zendesk.com/hc/ja/articles/115000475854-AKASHI-%E5%85%AC%E9%96%8BAPI-%E4%BB%95%E6%A7%98#get_token
-int AkashiClient::updateToken(char *updatedToken)
+int AkashiClient::updateToken(char *updatedToken, time_t& expiredAt)
 {
         DynamicJsonDocument doc(128);
         doc["token"] = token;
@@ -85,6 +85,11 @@ int AkashiClient::updateToken(char *updatedToken)
         if (response["success"])
         {
                 strcpy(updatedToken, response["response"]["token"]);
+                struct tm expireAtTm;
+                // (yyyy/mm/dd HH:MM:SS)
+                strptime(response["response"]["expired_at"], "%Y/%m/%d %H%M%S", &expireAtTm);
+                expiredAt = mktime(&expireAtTm);
+                Serial.println(expiredAt);
                 return 0;
         }
         else
